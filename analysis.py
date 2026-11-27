@@ -11,125 +11,85 @@ COLUMN_ALIASES = {
         "product", "product_name", "item", "item_name",
         "sku", "product_id", "item_id"
     ],
-
     "warehouse": [
         "warehouse", "warehouse_name", "warehouse_id",
         "location", "warehouse_location", "store", "branch"
     ],
-
     "category": [
         "category", "product_category", "category_name",
         "product_type", "type"
     ],
-
     "stock": [
-        "stock", "stock_quantity", "quantity",
-        "inventory", "available_stock",
-        "current_stock", "on_hand", "units_in_stock"
+        "stock", "stock_quantity", "quantity", "inventory",
+        "available_stock", "inventory_level", "units_in_stock"
     ],
-
     "sales": [
-        "sales", "daily_sales", "units_sold",
-        "sales_quantity", "demand", "quantity_sold"
+        "sales", "sale", "units_sold", "sales_quantity",
+        "demand", "quantity_sold"
     ],
-
-    "reorder": [
-        "reorder_point", "reorder level",
-        "minimum_stock", "min_stock",
-        "safety_stock", "stock_threshold"
+    "reorder_point": [
+        "reorder_point", "reorder level", "reorder_level",
+        "minimum_stock", "min_stock"
     ],
-
     "supplier": [
-        "supplier", "supplier_name",
-        "vendor", "vendor_name"
+        "supplier", "supplier_name", "vendor", "vendor_name"
     ],
-
     "lead_time": [
-        "lead_time", "lead time",
-        "delivery_days", "shipping_days"
+        "lead_time", "lead time", "delivery_time",
+        "delivery_days", "supplier_lead_time"
     ],
-
-    "price": [
-        "price", "unit_price", "cost",
-        "purchase_price", "product_price"
+    "unit_price": [
+        "unit_price", "price", "cost", "product_price",
+        "selling_price"
     ],
-
     "date": [
-        "date", "order_date", "sales_date",
-        "transaction_date", "timestamp"
+        "date", "order_date", "sales_date", "transaction_date",
+        "timestamp"
     ],
-
-    "order_quantity": [
-        "order_quantity", "quantity_ordered",
-        "purchase_quantity", "ordered_quantity"
-    ],
-
-    "status": [
-        "status", "stock_status", "inventory_status"
-    ],
-
-    "revenue": [
-        "revenue", "sales_revenue", "total_sales"
-    ],
-
-    "fill_rate": [
-        "fill_rate", "order_fill_rate",
-        "fulfillment_rate"
-    ]
 }
 
 
-def normalize_name(name):
+def normalize_column_name(column):
     return (
-        str(name)
+        str(column)
         .strip()
         .lower()
-        .replace("_", " ")
-        .replace("-", " ")
+        .replace(" ", "_")
+        .replace("-", "_")
     )
 
 
-def find_column(df, possible_names):
+def find_column(df, column_type):
     """
-    Detect a column using flexible case-insensitive matching.
+    Finds a column using predefined aliases.
+    Returns None if column is not found.
     """
 
     if df is None or df.empty:
         return None
 
-    columns = list(df.columns)
-
     normalized_columns = {
-        normalize_name(col): col
-        for col in columns
+        normalize_column_name(col): col
+        for col in df.columns
     }
 
-    # Exact match
-    for name in possible_names:
+    aliases = COLUMN_ALIASES.get(column_type, [])
 
-        normalized_name = normalize_name(name)
+    for alias in aliases:
+        alias = normalize_column_name(alias)
 
-        if normalized_name in normalized_columns:
-            return normalized_columns[normalized_name]
+        if alias in normalized_columns:
+            return normalized_columns[alias]
 
-    # Partial match
-    for name in possible_names:
+    # Partial matching
+    for normalized, original in normalized_columns.items():
+        for alias in aliases:
+            alias = normalize_column_name(alias)
 
-        normalized_name = normalize_name(name)
-
-        for normalized_col, original_col in normalized_columns.items():
-
-            if normalized_name in normalized_col:
-                return original_col
+            if alias in normalized:
+                return original
 
     return None
-
-
-def get_column(df, key):
-
-    aliases = COLUMN_ALIASES.get(key, [key])
-
-    return find_column(df, aliases)
 
 
 # =========================================================
@@ -137,52 +97,51 @@ def get_column(df, key):
 # =========================================================
 
 def clean_data(df):
-
     if df is None:
         return pd.DataFrame()
 
     df = df.copy()
 
-    # Remove empty columns
-    df = df.dropna(axis=1, how="all")
-
-    # Clean column names
     df.columns = [
-        str(col).strip()
+        normalize_column_name(col)
         for col in df.columns
     ]
 
-    # Remove completely empty rows
-    df = df.dropna(how="all")
+    df = df.drop_duplicates()
 
-    # Convert numeric columns
-    numeric_keys = [
+    # Numeric conversion
+    numeric_candidates = [
         "stock",
+        "stock_quantity",
+        "quantity",
+        "inventory",
+        "available_stock",
         "sales",
-        "reorder",
+        "units_sold",
+        "sales_quantity",
+        "demand",
+        "reorder_point",
+        "minimum_stock",
+        "min_stock",
         "lead_time",
+        "lead_time_days",
+        "delivery_time",
+        "unit_price",
         "price",
-        "order_quantity",
-        "revenue",
-        "fill_rate"
+        "cost"
     ]
 
-    for key in numeric_keys:
-
-        col = get_column(df, key)
-
-        if col is not None:
-
+    for col in numeric_candidates:
+        if col in df.columns:
             df[col] = pd.to_numeric(
                 df[col],
                 errors="coerce"
             )
 
     # Date conversion
-    date_col = get_column(df, "date")
+    date_col = find_column(df, "date")
 
-    if date_col is not None:
-
+    if date_col:
         df[date_col] = pd.to_datetime(
             df[date_col],
             errors="coerce"
@@ -192,160 +151,129 @@ def clean_data(df):
 
 
 # =========================================================
-# HEADLINE KPI METRICS
+# STANDARDIZE DATASET
+# =========================================================
+
+def standardize_data(df):
+    df = clean_data(df)
+
+    if df.empty:
+        return df
+
+    # Standard columns
+    mappings = {
+        "product": find_column(df, "product"),
+        "warehouse": find_column(df, "warehouse"),
+        "category": find_column(df, "category"),
+        "stock": find_column(df, "stock"),
+        "sales": find_column(df, "sales"),
+        "reorder_point": find_column(df, "reorder_point"),
+        "supplier": find_column(df, "supplier"),
+        "lead_time": find_column(df, "lead_time"),
+        "unit_price": find_column(df, "unit_price"),
+        "date": find_column(df, "date"),
+    }
+
+    for standard_name, original_name in mappings.items():
+
+        if original_name and original_name != standard_name:
+            df[standard_name] = df[original_name]
+
+    # Missing default columns
+    defaults = {
+        "product": "Unknown Product",
+        "warehouse": "Unknown Warehouse",
+        "category": "Unknown Category",
+        "stock": 0,
+        "sales": 0,
+        "reorder_point": 0,
+        "supplier": "Unknown Supplier",
+        "lead_time": 0,
+        "unit_price": 0,
+    }
+
+    for col, default_value in defaults.items():
+
+        if col not in df.columns:
+            df[col] = default_value
+
+        df[col] = df[col].fillna(default_value)
+
+    # Convert numeric values safely
+    numeric_columns = [
+        "stock",
+        "sales",
+        "reorder_point",
+        "lead_time",
+        "unit_price"
+    ]
+
+    for col in numeric_columns:
+        df[col] = pd.to_numeric(
+            df[col],
+            errors="coerce"
+        ).fillna(0)
+
+    return df
+
+
+# =========================================================
+# KPI CALCULATIONS
 # =========================================================
 
 def headline_kpis(df):
 
-    df = clean_data(df)
+    df = standardize_data(df)
 
     if df.empty:
-
         return {
             "total_products": 0,
             "total_stock": 0,
+            "total_sales": 0,
             "stockout_rate": 0,
             "fill_rate": 0,
             "inventory_value": 0,
             "low_stock_items": 0,
-            "average_lead_time": 0
         }
 
-    stock_col = get_column(df, "stock")
+    total_products = df["product"].nunique()
 
-    reorder_col = get_column(df, "reorder")
+    total_stock = df["stock"].sum()
 
-    sales_col = get_column(df, "sales")
+    total_sales = df["sales"].sum()
 
-    price_col = get_column(df, "price")
+    stockout_items = (df["stock"] <= 0).sum()
 
-    lead_col = get_column(df, "lead_time")
+    stockout_rate = (
+        stockout_items / len(df) * 100
+        if len(df) > 0
+        else 0
+    )
 
-    total_products = len(df)
+    total_demand = df["sales"].sum()
 
-    total_stock = 0
+    fill_rate = (
+        min(total_stock / total_demand * 100, 100)
+        if total_demand > 0
+        else 100
+    )
 
-    stockout_rate = 0
+    inventory_value = (
+        df["stock"] * df["unit_price"]
+    ).sum()
 
-    fill_rate = 100
-
-    inventory_value = 0
-
-    low_stock_items = 0
-
-    average_lead_time = 0
-
-    # Total stock
-    if stock_col is not None:
-
-        stock = pd.to_numeric(
-            df[stock_col],
-            errors="coerce"
-        ).fillna(0)
-
-        total_stock = stock.sum()
-
-        stockout_count = (stock <= 0).sum()
-
-        stockout_rate = (
-            stockout_count / total_products
-        ) * 100
-
-        # Low stock
-        if reorder_col is not None:
-
-            reorder = pd.to_numeric(
-                df[reorder_col],
-                errors="coerce"
-            ).fillna(0)
-
-            low_stock_items = (
-                stock <= reorder
-            ).sum()
-
-        else:
-
-            low_stock_items = stockout_count
-
-    # Inventory value
-    if stock_col is not None and price_col is not None:
-
-        stock = pd.to_numeric(
-            df[stock_col],
-            errors="coerce"
-        ).fillna(0)
-
-        price = pd.to_numeric(
-            df[price_col],
-            errors="coerce"
-        ).fillna(0)
-
-        inventory_value = (
-            stock * price
-        ).sum()
-
-    # Fill rate
-    fill_rate_col = get_column(df, "fill_rate")
-
-    if fill_rate_col is not None:
-
-        fill_values = pd.to_numeric(
-            df[fill_rate_col],
-            errors="coerce"
-        ).dropna()
-
-        if not fill_values.empty:
-
-            fill_rate = fill_values.mean()
-
-            if fill_rate <= 1:
-                fill_rate *= 100
-
-    elif stock_col is not None and sales_col is not None:
-
-        stock = pd.to_numeric(
-            df[stock_col],
-            errors="coerce"
-        ).fillna(0)
-
-        sales = pd.to_numeric(
-            df[sales_col],
-            errors="coerce"
-        ).fillna(0)
-
-        total_demand = sales.sum()
-
-        if total_demand > 0:
-
-            fulfilled = np.minimum(
-                stock,
-                sales
-            ).sum()
-
-            fill_rate = (
-                fulfilled / total_demand
-            ) * 100
-
-    # Average lead time
-    if lead_col is not None:
-
-        lead_values = pd.to_numeric(
-            df[lead_col],
-            errors="coerce"
-        ).dropna()
-
-        if not lead_values.empty:
-
-            average_lead_time = lead_values.mean()
+    low_stock_items = (
+        df["stock"] <= df["reorder_point"]
+    ).sum()
 
     return {
         "total_products": int(total_products),
         "total_stock": float(total_stock),
+        "total_sales": float(total_sales),
         "stockout_rate": float(stockout_rate),
         "fill_rate": float(fill_rate),
         "inventory_value": float(inventory_value),
         "low_stock_items": int(low_stock_items),
-        "average_lead_time": float(average_lead_time)
     }
 
 
@@ -353,30 +281,48 @@ def headline_kpis(df):
 # INVENTORY DISTRIBUTION
 # =========================================================
 
-def inventory_distribution(df):
+def inventory_by_category(df):
 
-    df = clean_data(df)
+    df = standardize_data(df)
 
-    category_col = get_column(df, "category")
-
-    stock_col = get_column(df, "stock")
-
-    if category_col is None or stock_col is None:
-
+    if df.empty:
         return pd.DataFrame()
 
     result = (
-        df.groupby(category_col, dropna=False)[stock_col]
-        .sum()
-        .reset_index()
+        df.groupby("category", as_index=False)
+        .agg(
+            total_stock=("stock", "sum"),
+            total_sales=("sales", "sum"),
+            product_count=("product", "nunique")
+        )
     )
 
-    result.columns = [
-        "Category",
-        "Total Stock"
-    ]
+    return result.sort_values(
+        "total_stock",
+        ascending=False
+    )
 
-    return result
+
+def inventory_by_warehouse(df):
+
+    df = standardize_data(df)
+
+    if df.empty:
+        return pd.DataFrame()
+
+    result = (
+        df.groupby("warehouse", as_index=False)
+        .agg(
+            total_stock=("stock", "sum"),
+            total_sales=("sales", "sum"),
+            product_count=("product", "nunique")
+        )
+    )
+
+    return result.sort_values(
+        "total_stock",
+        ascending=False
+    )
 
 
 # =========================================================
@@ -385,51 +331,22 @@ def inventory_distribution(df):
 
 def stock_status(df):
 
-    df = clean_data(df)
+    df = standardize_data(df)
 
-    stock_col = get_column(df, "stock")
-
-    reorder_col = get_column(df, "reorder")
-
-    if stock_col is None:
-
+    if df.empty:
         return pd.DataFrame()
 
-    df["Stock Status"] = "Normal"
-
-    stock = pd.to_numeric(
-        df[stock_col],
-        errors="coerce"
-    ).fillna(0)
-
-    df.loc[
-        stock <= 0,
-        "Stock Status"
-    ] = "Out of Stock"
-
-    if reorder_col is not None:
-
-        reorder = pd.to_numeric(
-            df[reorder_col],
-            errors="coerce"
-        ).fillna(0)
-
-        df.loc[
-            (stock > 0) & (stock <= reorder),
-            "Stock Status"
-        ] = "Low Stock"
-
-        df.loc[
-            stock > reorder,
-            "Stock Status"
-        ] = "Healthy Stock"
-
-    else:
-
-        df.loc[
-            stock > 0,
-            "Stock Status"
-        ] = "Healthy Stock"
+    df["stock_status"] = np.select(
+        [
+            df["stock"] <= 0,
+            df["stock"] <= df["reorder_point"],
+        ],
+        [
+            "Out of Stock",
+            "Low Stock",
+        ],
+        default="Healthy Stock"
+    )
 
     return df
 
@@ -440,39 +357,23 @@ def stock_status(df):
 
 def low_stock_alerts(df):
 
-    df = clean_data(df)
+    df = standardize_data(df)
 
-    stock_col = get_column(df, "stock")
-
-    reorder_col = get_column(df, "reorder")
-
-    if stock_col is None:
-
+    if df.empty:
         return pd.DataFrame()
 
-    stock = pd.to_numeric(
-        df[stock_col],
-        errors="coerce"
-    ).fillna(0)
+    alerts = df[
+        df["stock"] <= df["reorder_point"]
+    ].copy()
 
-    if reorder_col is not None:
+    alerts["shortage"] = (
+        alerts["reorder_point"] - alerts["stock"]
+    ).clip(lower=0)
 
-        reorder = pd.to_numeric(
-            df[reorder_col],
-            errors="coerce"
-        ).fillna(0)
-
-        alerts = df[
-            stock <= reorder
-        ].copy()
-
-    else:
-
-        alerts = df[
-            stock <= 0
-        ].copy()
-
-    return alerts
+    return alerts.sort_values(
+        "shortage",
+        ascending=False
+    )
 
 
 # =========================================================
@@ -481,276 +382,171 @@ def low_stock_alerts(df):
 
 def abc_analysis(df):
 
-    df = clean_data(df)
+    df = standardize_data(df)
 
-    stock_col = get_column(df, "stock")
-
-    price_col = get_column(df, "price")
-
-    product_col = get_column(df, "product")
-
-    category_col = get_column(df, "category")
-
-    if stock_col is None or price_col is None:
-
+    if df.empty:
         return pd.DataFrame()
 
-    df["Inventory Value"] = (
-        pd.to_numeric(
-            df[stock_col],
-            errors="coerce"
-        ).fillna(0)
-        *
-        pd.to_numeric(
-            df[price_col],
-            errors="coerce"
-        ).fillna(0)
+    df["revenue"] = (
+        df["sales"] * df["unit_price"]
     )
 
-    df = df.sort_values(
-        "Inventory Value",
+    if df["revenue"].sum() == 0:
+
+        df["revenue"] = df["stock"] * df["unit_price"]
+
+    result = (
+        df.groupby("product", as_index=False)
+        .agg(
+            revenue=("revenue", "sum"),
+            stock=("stock", "sum"),
+            category=("category", "first")
+        )
+    )
+
+    result = result.sort_values(
+        "revenue",
         ascending=False
     )
 
-    total_value = df["Inventory Value"].sum()
+    total_revenue = result["revenue"].sum()
 
-    if total_value == 0:
+    if total_revenue == 0:
+        result["cumulative_percentage"] = 0
+        result["abc_class"] = "C"
+        return result
 
-        df["Cumulative Percentage"] = 0
-
-        df["ABC Class"] = "C"
-
-        return df
-
-    df["Cumulative Value"] = (
-        df["Inventory Value"].cumsum()
+    result["percentage"] = (
+        result["revenue"] / total_revenue * 100
     )
 
-    df["Cumulative Percentage"] = (
-        df["Cumulative Value"] / total_value
-    ) * 100
+    result["cumulative_percentage"] = (
+        result["percentage"].cumsum()
+    )
 
-    df["ABC Class"] = np.where(
-        df["Cumulative Percentage"] <= 80,
-        "A",
-        np.where(
-            df["Cumulative Percentage"] <= 95,
+    result["abc_class"] = np.select(
+        [
+            result["cumulative_percentage"] <= 80,
+            result["cumulative_percentage"] <= 95,
+        ],
+        [
+            "A",
             "B",
-            "C"
-        )
+        ],
+        default="C"
     )
-
-    return df
-
-
-# =========================================================
-# REORDER RECOMMENDATIONS
-# =========================================================
-
-def reorder_recommendations(df):
-
-    df = clean_data(df)
-
-    stock_col = get_column(df, "stock")
-
-    reorder_col = get_column(df, "reorder")
-
-    sales_col = get_column(df, "sales")
-
-    if stock_col is None:
-
-        return pd.DataFrame()
-
-    stock = pd.to_numeric(
-        df[stock_col],
-        errors="coerce"
-    ).fillna(0)
-
-    if reorder_col is not None:
-
-        reorder = pd.to_numeric(
-            df[reorder_col],
-            errors="coerce"
-        ).fillna(0)
-
-    else:
-
-        reorder = pd.Series(
-            0,
-            index=df.index
-        )
-
-    if sales_col is not None:
-
-        sales = pd.to_numeric(
-            df[sales_col],
-            errors="coerce"
-        ).fillna(0)
-
-        recommended_order = np.maximum(
-            reorder - stock,
-            sales
-        )
-
-    else:
-
-        recommended_order = np.maximum(
-            reorder - stock,
-            0
-        )
-
-    df["Recommended Order Quantity"] = (
-        recommended_order
-    )
-
-    df["Action"] = np.where(
-        stock <= reorder,
-        "Reorder",
-        "No Action"
-    )
-
-    result = df[
-        df["Action"] == "Reorder"
-    ].copy()
 
     return result
 
 
 # =========================================================
-# SUPPLIER SCORECARD
+# SUPPLIER ANALYSIS
 # =========================================================
 
-def supplier_scorecard(df):
+def supplier_analysis(df):
 
-    df = clean_data(df)
+    df = standardize_data(df)
 
-    supplier_col = get_column(df, "supplier")
-
-    lead_col = get_column(df, "lead_time")
-
-    stock_col = get_column(df, "stock")
-
-    if supplier_col is None:
-
+    if df.empty:
         return pd.DataFrame()
-
-    aggregations = {}
-
-    if lead_col is not None:
-
-        aggregations[lead_col] = "mean"
-
-    if stock_col is not None:
-
-        aggregations[stock_col] = "sum"
-
-    if not aggregations:
-
-        return (
-            df[supplier_col]
-            .value_counts()
-            .reset_index()
-        )
 
     result = (
-        df.groupby(supplier_col)
-        .agg(aggregations)
-        .reset_index()
+        df.groupby("supplier", as_index=False)
+        .agg(
+            total_stock=("stock", "sum"),
+            total_sales=("sales", "sum"),
+            average_lead_time=("lead_time", "mean"),
+            product_count=("product", "nunique")
+        )
     )
 
-    return result
+    return result.sort_values(
+        "total_sales",
+        ascending=False
+    )
 
 
 # =========================================================
-# SALES TREND
+# INVENTORY FORECAST
+# =========================================================
+
+def inventory_forecast(df):
+
+    df = standardize_data(df)
+
+    if df.empty:
+        return pd.DataFrame()
+
+    result = (
+        df.groupby("product", as_index=False)
+        .agg(
+            current_stock=("stock", "sum"),
+            average_sales=("sales", "mean"),
+            reorder_point=("reorder_point", "mean")
+        )
+    )
+
+    result["forecast_demand"] = (
+        result["average_sales"] * 1.1
+    )
+
+    result["recommended_order"] = (
+        result["forecast_demand"]
+        + result["reorder_point"]
+        - result["current_stock"]
+    ).clip(lower=0)
+
+    return result.sort_values(
+        "recommended_order",
+        ascending=False
+    )
+
+
+# =========================================================
+# DAILY / MONTHLY TREND
 # =========================================================
 
 def sales_trend(df):
 
-    df = clean_data(df)
+    df = standardize_data(df)
 
-    date_col = get_column(df, "date")
+    date_col = find_column(df, "date")
 
-    sales_col = get_column(df, "sales")
-
-    if date_col is None or sales_col is None:
-
+    if date_col is None or df.empty:
         return pd.DataFrame()
 
-    df = df.dropna(
-        subset=[date_col]
-    )
-
-    result = (
-        df.groupby(date_col)[sales_col]
-        .sum()
-        .reset_index()
-    )
-
-    result.columns = [
-        "Date",
-        "Sales"
-    ]
-
-    return result.sort_values("Date")
-
-
-# =========================================================
-# WAREHOUSE ANALYSIS
-# =========================================================
-
-def warehouse_analysis(df):
-
-    df = clean_data(df)
-
-    warehouse_col = get_column(df, "warehouse")
-
-    stock_col = get_column(df, "stock")
-
-    if warehouse_col is None:
-
-        return pd.DataFrame()
-
-    if stock_col is None:
-
-        result = (
-            df.groupby(warehouse_col)
-            .size()
-            .reset_index(name="Product Count")
-        )
-
-        return result
-
-    result = (
-        df.groupby(warehouse_col)[stock_col]
-        .sum()
-        .reset_index()
-    )
-
-    result.columns = [
-        "Warehouse",
-        "Total Stock"
-    ]
-
-    return result
-
-
-# =========================================================
-# DATASET SUMMARY
-# =========================================================
-
-def dataset_summary(df):
-
-    df = clean_data(df)
+    df = df.dropna(subset=[date_col])
 
     if df.empty:
+        return pd.DataFrame()
 
-        return {}
+    result = (
+        df.groupby(date_col, as_index=False)
+        .agg(
+            sales=("sales", "sum"),
+            stock=("stock", "sum")
+        )
+    )
 
-    return {
-        "rows": len(df),
-        "columns": len(df.columns),
-        "column_names": list(df.columns),
-        "missing_values": int(df.isna().sum().sum()),
-        "duplicate_rows": int(df.duplicated().sum())
+    return result.sort_values(date_col)
+
+
+# =========================================================
+# GENERAL SUMMARY
+# =========================================================
+
+def generate_summary(df):
+
+    kpis = headline_kpis(df)
+
+    summary = {
+        "Total Products": kpis["total_products"],
+        "Total Stock": kpis["total_stock"],
+        "Total Sales": kpis["total_sales"],
+        "Stockout Rate": kpis["stockout_rate"],
+        "Fill Rate": kpis["fill_rate"],
+        "Inventory Value": kpis["inventory_value"],
+        "Low Stock Items": kpis["low_stock_items"],
     }
+
+    return summary
