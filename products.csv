@@ -1,0 +1,49 @@
+sku,product_name,category,warehouse,supplier,unit_cost,unit_price,order_cost,holding_rate,current_reorder_point
+SKU001,Electronics Item 001,Electronics,Delhi,EverGreen Imports,4050.0,4941.0,1500.0,0.22,284
+SKU002,Home & Kitchen Item 002,Home & Kitchen,Mumbai,BlueLine Traders,555.0,749.0,1500.0,0.22,91
+SKU003,Apparel Item 003,Apparel,Kolkata,Apex Supplies,1514.0,2271.0,1500.0,0.22,192
+SKU004,Grocery Item 004,Grocery,Bengaluru,BlueLine Traders,84.0,99.0,1500.0,0.22,374
+SKU005,Health & Beauty Item 005,Health & Beauty,Delhi,Delta Logistics,494.0,692.0,1200.0,0.22,446
+SKU006,Electronics Item 006,Electronics,Mumbai,EverGreen Imports,4035.0,4923.0,1200.0,0.22,99
+SKU007,Home & Kitchen Item 007,Home & Kitchen,Kolkata,FastTrack Distributors,366.0,494.0,1200.0,0.22,35
+SKU008,Apparel Item 008,Apparel,Bengaluru,Apex Supplies,1024.0,1536.0,1500.0,0.22,288
+SKU009,Grocery Item 009,Grocery,Delhi,CoreMart Wholesale,165.0,195.0,1200.0,0.22,630
+SKU010,Health & Beauty Item 010,Health & Beauty,Mumbai,BlueLine Traders,90.0,126.0,1500.0,0.22,190
+SKU011,Electronics Item 011,Electronics,Kolkata,EverGreen Imports,1843.0,2248.0,1200.0,0.22,32
+SKU012,Home & Kitchen Item 012,Home & Kitchen,Bengaluru,EverGreen Imports,359.0,485.0,1500.0,0.22,399
+SKU013,Apparel Item 013,Apparel,Delhi,FastTrack Distributors,1016.0,1524.0,1500.0,0.22,57
+SKU014,Grocery Item 014,Grocery,Mumbai,EverGreen Imports,41.0,48.0,1500.0,0.22,963
+SKU015,Health & Beauty Item 015,Health & Beauty,Kolkata,EverGreen Imports,794.0,1112.0,1200.0,0.22,174
+SKU016,Electronics Item 016,Electronics,Bengaluru,Apex Supplies,2816.0,3436.0,800.0,0.22,13
+SKU017,Home & Kitchen Item 017,Home & Kitchen,Delhi,CoreMart Wholesale,1252.0,1690.0,1200.0,0.22,270
+SKU018,Apparel Item 018,Apparel,Mumbai,Delta Logistics,1168.0,1752.0,1200.0,0.22,272
+SKU019,Grocery Item 019,Grocery,Kolkata,Delta Logistics,55.0,65.0,1200.0,0.22,146
+SKU020,Health & Beauty Item 020,Health & Beauty,Bengaluru,CoreMart Wholesale,159.0,223.0,1500.0,0.22,262
+SKU021,Electronics Item 021,Electronics,Delhi,Apex Supplies,4293.0,5237.0,800.0,0.22,25
+SKU022,Home & Kitchen Item 022,Home & Kitchen,Mumbai,Delta Logistics,328.0,443.0,1200.0,0.22,420
+SKU023,Apparel Item 023,Apparel,Kolkata,FastTrack Distributors,1646.0,2469.0,1200.0,0.22,57
+SKU024,Grocery Item 024,Grocery,Bengaluru,BlueLine Traders,233.0,275.0,800.0,0.22,383
+SKU025,Health & Beauty Item 025,Health & Beauty,Delhi,FastTrack Distributors,805.0,1127.0,1200.0,0.22,63
+SKU026,Electronics Item 026,Electronics,Mumbai,CoreMart Wholesale,2937.0,3583.0,1500.0,0.22,18
+SKU027,Home & Kitchen Item 027,Home & Kitchen,Kolkata,Delta Logistics,1333.0,1800.0,1200.0,0.22,128
+SKU028,Apparel Item 028,Apparel,Bengaluru,BlueLine Traders,1402.0,2103.0,1500.0,0.22,59
+SKU029,Grocery Item 029,Grocery,Delhi,FastTrack Distributors,27.0,32.0,800.0,0.22,237
+SKU030,Health & Beauty Item 030,Health & Beauty,Mumbai,Delta Logistics,431.0,603.0,1200.0,0.22,424
+SKU031,Electronics Item 031,Electronics,Kolkata,Apex Supplies,2590.0,3160.0,1200.0,0.22,114
+SKU032,Home & Kitchen Item 032,Home & Kitchen,Bengaluru,CoreMart Wholesale,851.0,1149.0,1500.0,0.22,535
+SKU033,Apparel Item 033,Apparel,Delhi,CoreMart Wholesale,442.0,663.0,1500.0,0.22,67
+SKU034,Grocery Item 034,Grocery,Mumbai,EverGreen Imports,206.0,243.0,1500.0,0.22,542
+SKU035,Health & Beauty Item 035,Health & Beauty,Kolkata,FastTrack Distributors,749.0,1049.0,800.0,0.22,150
+SKU036,Electronics Item 036,Electronics,Bengaluru,EverGreen Imports,3468.0,4231.0,800.0,0.22,79
+SKU037,Home & Kitchen Item 037,Home & Kitchen,Delhi,FastTrack Distributors,418.0,564.0,1200.0,0.22,51
+SKU038,Apparel Item 038,Apparel,Mumbai,CoreMart Wholesale,1717.0,2576.0,1500.0,0.22,217
+SKU039,Grocery Item 039,Grocery,Kolkata,Apex Supplies,82.0,97.0,1500.0,0.22,264
+SKU040,Health & Beauty Item 040,Health & Beauty,Bengaluru,FastTrack Distributors,503.0,704.0,1500.0,0.22,318
+SKU041,Electronics Item 041,Electronics,Delhi,Delta Logistics,4662.0,5688.0,1200.0,0.22,96
+SKU042,Home & Kitchen Item 042,Home & Kitchen,Mumbai,FastTrack Distributors,706.0,953.0,800.0,0.22,63
+SKU043,Apparel Item 043,Apparel,Kolkata,Apex Supplies,888.0,1332.0,1200.0,0.22,322
+SKU044,Grocery Item 044,Grocery,Bengaluru,BlueLine Traders,205.0,242.0,800.0,0.22,993
+SKU045,Health & Beauty Item 045,Health & Beauty,Delhi,FastTrack Distributors,596.0,834.0,1500.0,0.22,102
+SKU046,Electronics Item 046,Electronics,Mumbai,CoreMart Wholesale,1855.0,2263.0,1200.0,0.22,18
+SKU047,Home & Kitchen Item 047,Home & Kitchen,Kolkata,EverGreen Imports,1386.0,1871.0,1500.0,0.22,184
+SKU048,Apparel Item 048,Apparel,Bengaluru,Delta Logistics,967.0,1450.0,1200.0,0.22,162
