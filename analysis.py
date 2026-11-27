@@ -9,53 +9,44 @@ import numpy as np
 
 
 # ============================================================
-# PROJECT PATH
+# PROJECT DIRECTORY
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
 
 DATA_DIR = BASE_DIR / "data"
 
-# Also check alternative dataset folders
 DATA_FOLDERS = [
+    BASE_DIR,                 # CSV files in root
     BASE_DIR / "data",
     BASE_DIR / "datasets",
-    BASE_DIR / "Data",
     BASE_DIR / "Dataset",
-    BASE_DIR
+    BASE_DIR / "Data"
 ]
 
 
 # ============================================================
-# HELPER: FIND CSV FILE
+# FIND CSV FILE
 # ============================================================
 
 def find_csv_file(possible_names):
-    """
-    Search for a CSV file in common project folders.
-    """
 
-    # First check expected folders
     for folder in DATA_FOLDERS:
 
-        if not folder.exists():
-            continue
+        if folder.exists():
 
-        for filename in possible_names:
+            for filename in possible_names:
 
-            file_path = folder / filename
+                file_path = folder / filename
 
-            if file_path.exists():
-                return file_path
+                if file_path.exists():
+                    return file_path
 
-    # Recursive fallback search
+    # Search recursively
     for filename in possible_names:
 
-        matches = list(
-            BASE_DIR.rglob(filename)
-        )
+        matches = list(BASE_DIR.rglob(filename))
 
-        # Ignore .git folders
         matches = [
             path for path in matches
             if ".git" not in path.parts
@@ -68,13 +59,10 @@ def find_csv_file(possible_names):
 
 
 # ============================================================
-# HELPER: LOAD CSV
+# READ CSV SAFELY
 # ============================================================
 
 def read_csv_safely(file_path):
-    """
-    Read CSV while handling common encoding issues.
-    """
 
     if file_path is None:
         return pd.DataFrame()
@@ -95,10 +83,9 @@ def read_csv_safely(file_path):
                 encoding=encoding
             )
 
-            # Remove unnecessary spaces from column names
             df.columns = [
-                str(column).strip()
-                for column in df.columns
+                str(col).strip()
+                for col in df.columns
             ]
 
             return df
@@ -109,73 +96,30 @@ def read_csv_safely(file_path):
         except Exception as error:
 
             raise ValueError(
-                f"Unable to read {file_path.name}: {error}"
+                f"Error reading {file_path.name}: {error}"
             )
 
     raise ValueError(
-        f"Could not read file: {file_path.name}"
+        f"Unable to read CSV file: {file_path.name}"
     )
 
 
 # ============================================================
-# HELPER: FIND COLUMN
-# ============================================================
-
-def find_column(df, possible_names):
-    """
-    Identify a column using possible names.
-    """
-
-    if df.empty:
-        return None
-
-    column_mapping = {
-        str(column).lower().strip(): column
-        for column in df.columns
-    }
-
-    for name in possible_names:
-
-        name = name.lower().strip()
-
-        if name in column_mapping:
-            return column_mapping[name]
-
-    # Partial matching fallback
-    for column in df.columns:
-
-        column_lower = str(column).lower().strip()
-
-        for name in possible_names:
-
-            if name.lower() in column_lower:
-                return column
-
-    return None
-
-
-# ============================================================
-# HELPER: CLEAN DATA
+# CLEAN DATAFRAME
 # ============================================================
 
 def clean_dataframe(df):
-    """
-    Basic cleaning of dataset.
-    """
 
     if df.empty:
         return df
 
-    # Remove duplicate records
     df = df.drop_duplicates()
 
-    # Remove spaces from column names
     df.columns = [
-        str(column).strip()
-        for column in df.columns
+        str(col).strip()
+        for col in df.columns
     ]
 
-    # Clean string columns
     for column in df.select_dtypes(
         include=["object"]
     ).columns:
@@ -191,19 +135,48 @@ def clean_dataframe(df):
 
 
 # ============================================================
-# LOAD PROJECT DATA
+# FIND COLUMN
+# ============================================================
+
+def find_column(df, possible_names):
+
+    if df.empty:
+        return None
+
+    column_mapping = {
+        str(col).lower().strip(): col
+        for col in df.columns
+    }
+
+    # Exact matching
+    for name in possible_names:
+
+        name_lower = name.lower().strip()
+
+        if name_lower in column_mapping:
+            return column_mapping[name_lower]
+
+    # Partial matching
+    for column in df.columns:
+
+        column_lower = str(column).lower().strip()
+
+        for name in possible_names:
+
+            if name.lower() in column_lower:
+                return column
+
+    return None
+
+
+# ============================================================
+# LOAD DATA
 # ============================================================
 
 def load():
-    """
-    Load products, sales, inventory and purchase orders.
-
-    Returns:
-        products, sales, inventory, purchase_orders
-    """
 
     # --------------------------------------------------------
-    # PRODUCT DATA
+    # PRODUCTS
     # --------------------------------------------------------
 
     product_file = find_csv_file([
@@ -214,7 +187,7 @@ def load():
     ])
 
     # --------------------------------------------------------
-    # SALES DATA
+    # SALES
     # --------------------------------------------------------
 
     sales_file = find_csv_file([
@@ -225,10 +198,12 @@ def load():
     ])
 
     # --------------------------------------------------------
-    # INVENTORY DATA
+    # INVENTORY
+    # IMPORTANT: YOUR ACTUAL FILE IS inventory_daily.csv
     # --------------------------------------------------------
 
     inventory_file = find_csv_file([
+        "inventory_daily.csv",
         "inventory.csv",
         "inventory_data.csv",
         "stock.csv",
@@ -236,7 +211,7 @@ def load():
     ])
 
     # --------------------------------------------------------
-    # PURCHASE ORDER DATA
+    # PURCHASE ORDERS
     # --------------------------------------------------------
 
     purchase_order_file = find_csv_file([
@@ -249,7 +224,7 @@ def load():
     ])
 
     # --------------------------------------------------------
-    # CHECK REQUIRED FILES
+    # CHECK REQUIRED DATASETS
     # --------------------------------------------------------
 
     missing_files = []
@@ -261,26 +236,19 @@ def load():
         missing_files.append("sales.csv")
 
     if inventory_file is None:
-        missing_files.append("inventory.csv")
+        missing_files.append("inventory_daily.csv")
 
     if missing_files:
 
-        searched_locations = "\n".join(
-            str(folder)
-            for folder in DATA_FOLDERS
-        )
-
         raise FileNotFoundError(
-            "Missing required dataset(s): "
+            "Missing required dataset files: "
             + ", ".join(missing_files)
-            + "\n\nExpected files inside folders such as:\n"
-            + str(BASE_DIR / "data")
-            + "\n\nFolders searched:\n"
-            + searched_locations
+            + "\n\nYour CSV files should be located in:\n"
+            + str(BASE_DIR)
         )
 
     # --------------------------------------------------------
-    # READ FILES
+    # LOAD CSV FILES
     # --------------------------------------------------------
 
     products = read_csv_safely(product_file)
@@ -289,7 +257,8 @@ def load():
 
     inventory = read_csv_safely(inventory_file)
 
-    if purchase_order_file:
+    # Purchase orders are optional
+    if purchase_order_file is not None:
 
         purchase_orders = read_csv_safely(
             purchase_order_file
@@ -297,7 +266,6 @@ def load():
 
     else:
 
-        # Purchase orders are optional
         purchase_orders = pd.DataFrame()
 
     # --------------------------------------------------------
@@ -318,7 +286,7 @@ def load():
     # CONVERT DATE COLUMNS
     # --------------------------------------------------------
 
-    date_columns = [
+    date_keywords = [
         "date",
         "sales_date",
         "order_date",
@@ -335,7 +303,7 @@ def load():
 
         for column in df.columns:
 
-            if str(column).lower().strip() in date_columns:
+            if str(column).lower().strip() in date_keywords:
 
                 df[column] = pd.to_datetime(
                     df[column],
@@ -346,7 +314,7 @@ def load():
     # CONVERT NUMERIC COLUMNS
     # --------------------------------------------------------
 
-    numeric_candidates = [
+    numeric_keywords = [
         "sales",
         "revenue",
         "sales_amount",
@@ -372,7 +340,7 @@ def load():
 
         for column in df.columns:
 
-            if str(column).lower().strip() in numeric_candidates:
+            if str(column).lower().strip() in numeric_keywords:
 
                 df[column] = pd.to_numeric(
                     df[column],
@@ -396,25 +364,11 @@ def load():
 # ============================================================
 
 def evaluate_forecasts(sales):
-    """
-    Generate a simple sales forecast using historical data.
-
-    Uses monthly or daily sales data and moving averages.
-
-    Returns a DataFrame containing:
-        Date
-        Actual Sales
-        Forecast
-    """
 
     if sales is None or sales.empty:
-
         return pd.DataFrame()
 
-    # --------------------------------------------------------
-    # FIND DATE COLUMN
-    # --------------------------------------------------------
-
+    # Find date column
     date_column = find_column(
         sales,
         [
@@ -425,10 +379,7 @@ def evaluate_forecasts(sales):
         ]
     )
 
-    # --------------------------------------------------------
-    # FIND SALES COLUMN
-    # --------------------------------------------------------
-
+    # Find sales column
     sales_column = find_column(
         sales,
         [
@@ -440,15 +391,11 @@ def evaluate_forecasts(sales):
         ]
     )
 
-    # --------------------------------------------------------
-    # VALIDATION
-    # --------------------------------------------------------
-
     if date_column is None:
 
         return pd.DataFrame({
             "Message": [
-                "No date column found for forecasting."
+                "Date column not found in sales dataset."
             ]
         })
 
@@ -456,14 +403,11 @@ def evaluate_forecasts(sales):
 
         return pd.DataFrame({
             "Message": [
-                "No sales/revenue column found."
+                "Sales column not found in sales dataset."
             ]
         })
 
-    # --------------------------------------------------------
-    # PREPARE DATA
-    # --------------------------------------------------------
-
+    # Prepare data
     data = sales.copy()
 
     data[date_column] = pd.to_datetime(
@@ -484,13 +428,9 @@ def evaluate_forecasts(sales):
     )
 
     if data.empty:
-
         return pd.DataFrame()
 
-    # --------------------------------------------------------
-    # AGGREGATE SALES BY DATE
-    # --------------------------------------------------------
-
+    # Aggregate sales by date
     daily_sales = (
         data.groupby(date_column)[sales_column]
         .sum()
@@ -506,10 +446,7 @@ def evaluate_forecasts(sales):
         "Actual Sales"
     ]
 
-    # --------------------------------------------------------
-    # MOVING AVERAGE FORECAST
-    # --------------------------------------------------------
-
+    # Moving average forecast
     daily_sales["Forecast"] = (
         daily_sales["Actual Sales"]
         .rolling(
@@ -519,15 +456,14 @@ def evaluate_forecasts(sales):
         .mean()
     )
 
-    # --------------------------------------------------------
-    # FUTURE FORECAST
-    # --------------------------------------------------------
-
+    # Future forecast
     last_date = daily_sales["Date"].max()
 
-    last_forecast = daily_sales["Actual Sales"].tail(
-        3
-    ).mean()
+    last_forecast = (
+        daily_sales["Actual Sales"]
+        .tail(3)
+        .mean()
+    )
 
     future_dates = pd.date_range(
         start=last_date + pd.Timedelta(days=1),
@@ -537,14 +473,11 @@ def evaluate_forecasts(sales):
 
     future_data = pd.DataFrame({
         "Date": future_dates,
-        "Actual Sales": [np.nan] * len(future_dates),
-        "Forecast": [last_forecast] * len(future_dates)
+        "Actual Sales": [np.nan] * 7,
+        "Forecast": [last_forecast] * 7
     })
 
-    # --------------------------------------------------------
-    # COMBINE HISTORICAL + FUTURE
-    # --------------------------------------------------------
-
+    # Combine actual and forecast data
     result = pd.concat(
         [
             daily_sales,
@@ -560,22 +493,18 @@ def evaluate_forecasts(sales):
 # FORECAST METRICS
 # ============================================================
 
-def calculate_forecast_metrics(
-    actual,
-    predicted
-):
-    """
-    Calculate forecast performance metrics.
-    """
+def calculate_forecast_metrics(actual, predicted):
 
-    actual = np.array(actual, dtype=float)
+    actual = np.array(
+        actual,
+        dtype=float
+    )
 
     predicted = np.array(
         predicted,
         dtype=float
     )
 
-    # Remove missing values
     mask = (
         ~np.isnan(actual)
         &
@@ -594,19 +523,19 @@ def calculate_forecast_metrics(
             "MAPE": np.nan
         }
 
-    # MAE
+    # Mean Absolute Error
     mae = np.mean(
         np.abs(actual - predicted)
     )
 
-    # RMSE
+    # Root Mean Squared Error
     rmse = np.sqrt(
         np.mean(
             (actual - predicted) ** 2
         )
     )
 
-    # MAPE
+    # Mean Absolute Percentage Error
     non_zero = actual != 0
 
     if np.any(non_zero):
@@ -635,16 +564,12 @@ def calculate_forecast_metrics(
 
 
 # ============================================================
-# INVENTORY ANALYSIS
+# INVENTORY SUMMARY
 # ============================================================
 
 def inventory_summary(inventory):
-    """
-    Calculate inventory summary.
-    """
 
     if inventory.empty:
-
         return {}
 
     stock_column = find_column(
@@ -654,12 +579,12 @@ def inventory_summary(inventory):
             "inventory",
             "stock_quantity",
             "quantity",
-            "available_stock"
+            "available_stock",
+            "inventory_quantity"
         ]
     )
 
     if stock_column is None:
-
         return {}
 
     stock = pd.to_numeric(
@@ -680,12 +605,8 @@ def inventory_summary(inventory):
 # ============================================================
 
 def sales_summary(sales):
-    """
-    Calculate sales summary statistics.
-    """
 
     if sales.empty:
-
         return {}
 
     sales_column = find_column(
@@ -738,12 +659,8 @@ def sales_summary(sales):
 # ============================================================
 
 def product_summary(products):
-    """
-    Calculate product summary statistics.
-    """
 
     if products.empty:
-
         return {}
 
     category_column = find_column(
@@ -788,12 +705,8 @@ def product_summary(products):
 # ============================================================
 
 def purchase_order_summary(purchase_orders):
-    """
-    Calculate purchase order summary statistics.
-    """
 
     if purchase_orders.empty:
-
         return {}
 
     order_column = find_column(
@@ -862,5 +775,31 @@ def purchase_order_summary(purchase_orders):
 
 
 # ============================================================
-# END OF ANALYSIS.PY
+# SUPPLIER DATA
+# ============================================================
+
+def load_suppliers():
+
+    supplier_file = find_csv_file([
+        "suppliers.csv",
+        "supplier.csv",
+        "supplier_data.csv"
+    ])
+
+    if supplier_file is None:
+        return pd.DataFrame()
+
+    suppliers = read_csv_safely(
+        supplier_file
+    )
+
+    suppliers = clean_dataframe(
+        suppliers
+    )
+
+    return suppliers
+
+
+# ============================================================
+# END OF FILE
 # ============================================================
