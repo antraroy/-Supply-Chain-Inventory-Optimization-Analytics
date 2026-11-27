@@ -210,7 +210,7 @@ c = st.columns(6)
 
 c[0].metric(
     "Stockout Rate",
-    f"{k['stockout_rate']:.2%}"
+    f"{k.get['stockout_rate',0]:.2%}"
 )
 
 c[1].metric(
