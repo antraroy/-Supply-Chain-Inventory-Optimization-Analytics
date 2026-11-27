@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import plotly.express as px
 import os
 
-import analysis
+import analysis as an
 
 
 # =========================================================
@@ -13,8 +13,7 @@ import analysis
 st.set_page_config(
     page_title="Supply Chain Analytics",
     page_icon="📦",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
 
@@ -29,19 +28,20 @@ st.markdown("""
     background-color: #f7f9fc;
 }
 
-[data-testid="stMetric"] {
-    background-color: white;
-    padding: 18px;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
-}
-
 h1 {
-    color: #14213d;
+    color: #17365D;
 }
 
 h2, h3 {
-    color: #1f2937;
+    color: #24476B;
+}
+
+[data-testid="metric-container"] {
+    background-color: white;
+    border: 1px solid #e6eaf0;
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0px 2px 5px rgba(0,0,0,0.05);
 }
 
 </style>
@@ -49,45 +49,20 @@ h2, h3 {
 
 
 # =========================================================
-# LOAD DATA
+# DATA LOADING
 # =========================================================
 
 @st.cache_data
-def load_csv(file_path):
+def load_csv_file(file_path):
 
     try:
+        return pd.read_csv(file_path)
 
-        df = pd.read_csv(file_path)
-
-        return analysis.clean_data(df)
-
-    except Exception as e:
-
-        st.error(f"Unable to load CSV: {e}")
-
+    except Exception:
         return pd.DataFrame()
 
 
-def load_uploaded_file(uploaded_file):
-
-    try:
-
-        df = pd.read_csv(uploaded_file)
-
-        return analysis.clean_data(df)
-
-    except Exception as e:
-
-        st.error(f"Error reading uploaded file: {e}")
-
-        return pd.DataFrame()
-
-
-# =========================================================
-# FIND DATASET
-# =========================================================
-
-def get_dataset():
+def load_data():
 
     uploaded_file = st.sidebar.file_uploader(
         "Upload Inventory CSV",
@@ -96,68 +71,62 @@ def get_dataset():
 
     if uploaded_file is not None:
 
-        df = load_uploaded_file(uploaded_file)
+        try:
+            df = pd.read_csv(uploaded_file)
+            return df
 
-        return df
+        except Exception as e:
+            st.error(f"Unable to read uploaded file: {e}")
+            return pd.DataFrame()
 
+    # Local dataset options
     possible_files = [
-        "inventory.csv",
-        "inventory_data.csv",
-        "supply_chain.csv",
-        "data.csv",
-        "inventory_dataset.csv"
+        "inventory_daily.csv",
+        "products.csv",
+        "sales.csv",
     ]
 
     for file_name in possible_files:
 
         if os.path.exists(file_name):
 
-            return load_csv(file_name)
+            df = load_csv_file(file_name)
 
-    # Search in data folder
-    if os.path.exists("data"):
-
-        for file_name in os.listdir("data"):
-
-            if file_name.lower().endswith(".csv"):
-
-                file_path = os.path.join(
-                    "data",
-                    file_name
-                )
-
-                return load_csv(file_path)
+            if not df.empty:
+                return df
 
     return pd.DataFrame()
 
 
 # =========================================================
-# SIDEBAR
+# HEADER
 # =========================================================
 
-st.sidebar.title("🔎 Dashboard Filters")
+st.title("📦 Supply Chain & Inventory Optimization Analytics")
 
-st.sidebar.markdown("---")
-
-df_original = get_dataset()
+st.caption(
+    "Reduce stockouts, overstocking and delivery delays "
+    "through forecasting, ABC analysis, supplier analytics "
+    "and inventory optimization."
+)
 
 
 # =========================================================
-# DATA NOT FOUND
+# LOAD DATA
 # =========================================================
 
-if df_original.empty:
+raw_df = load_data()
 
-    st.title("📦 Supply Chain & Inventory Optimization Analytics")
+if raw_df.empty:
 
     st.warning(
         "No inventory dataset found. "
-        "Upload your CSV file using the sidebar."
+        "Upload a CSV file from the sidebar."
     )
 
-    st.markdown("""
-    ### Expected dataset columns
+    st.markdown("### Expected dataset columns")
 
+    st.write("""
     Your dataset may contain these columns:
 
     - Product / Product Name
@@ -177,122 +146,61 @@ if df_original.empty:
     st.stop()
 
 
+df = an.standardize_data(raw_df)
+
+
 # =========================================================
-# FILTERS
+# SIDEBAR FILTERS
 # =========================================================
 
-df = df_original.copy()
+st.sidebar.header("🔎 Dashboard Filters")
 
 
 # Warehouse filter
-warehouse_col = analysis.get_column(
-    df,
-    "warehouse"
+warehouse_options = sorted(
+    df["warehouse"].dropna().astype(str).unique().tolist()
 )
 
-if warehouse_col is not None:
-
-    warehouse_options = sorted(
-        df[warehouse_col]
-        .dropna()
-        .astype(str)
-        .unique()
-        .tolist()
-    )
-
-    selected_warehouses = st.sidebar.multiselect(
-        "Warehouse",
-        options=warehouse_options,
-        default=warehouse_options
-    )
-
-    if selected_warehouses:
-
-        df = df[
-            df[warehouse_col]
-            .astype(str)
-            .isin(selected_warehouses)
-        ]
-
-    else:
-
-        df = df.iloc[0:0]
-
-else:
-
-    st.sidebar.info(
-        "Warehouse column not available."
-    )
+selected_warehouses = st.sidebar.multiselect(
+    "Warehouse",
+    warehouse_options,
+    default=warehouse_options
+)
 
 
 # Category filter
-category_col = analysis.get_column(
-    df,
-    "category"
+category_options = sorted(
+    df["category"].dropna().astype(str).unique().tolist()
 )
 
-if category_col is not None:
-
-    category_options = sorted(
-        df[category_col]
-        .dropna()
-        .astype(str)
-        .unique()
-        .tolist()
-    )
-
-    selected_categories = st.sidebar.multiselect(
-        "Category",
-        options=category_options,
-        default=category_options
-    )
-
-    if selected_categories:
-
-        df = df[
-            df[category_col]
-            .astype(str)
-            .isin(selected_categories)
-        ]
-
-    else:
-
-        df = df.iloc[0:0]
-
-else:
-
-    st.sidebar.info(
-        "Category column not available."
-    )
-
-
-# =========================================================
-# HEADER
-# =========================================================
-
-st.title(
-    "📦 Supply Chain & Inventory Optimization Analytics"
+selected_categories = st.sidebar.multiselect(
+    "Category",
+    category_options,
+    default=category_options
 )
 
-st.markdown("""
-Reduce stockouts, overstocking and delivery delays through
-forecasting, ABC analysis, supplier scorecards and
-reorder-point optimization.
-""")
+
+# Apply filters
+filtered_df = df.copy()
 
 
-st.markdown("---")
+if selected_warehouses:
+
+    filtered_df = filtered_df[
+        filtered_df["warehouse"].isin(selected_warehouses)
+    ]
 
 
-# =========================================================
-# NO FILTERED DATA
-# =========================================================
+if selected_categories:
 
-if df.empty:
+    filtered_df = filtered_df[
+        filtered_df["category"].isin(selected_categories)
+    ]
 
-    st.warning(
-        "No data available for the selected filters."
-    )
+
+if filtered_df.empty:
+
+    st.warning("No data available for the selected filters.")
 
     st.stop()
 
@@ -304,128 +212,195 @@ if df.empty:
 st.header("📊 Key Performance Indicators")
 
 
-kpis = analysis.headline_kpis(df)
+kpis = an.headline_kpis(filtered_df)
 
 
 col1, col2, col3, col4 = st.columns(4)
 
 
-col1.metric(
-    "Total Products",
-    f"{kpis['total_products']:,}"
-)
+with col1:
+
+    st.metric(
+        "Total Products",
+        f"{kpis['total_products']:,}"
+    )
 
 
-col2.metric(
-    "Total Stock",
-    f"{kpis['total_stock']:,.0f}"
-)
+with col2:
+
+    st.metric(
+        "Total Stock",
+        f"{kpis['total_stock']:,.0f}"
+    )
 
 
-col3.metric(
-    "Stockout Rate",
-    f"{kpis['stockout_rate']:.2f}%"
-)
+with col3:
+
+    st.metric(
+        "Stockout Rate",
+        f"{kpis['stockout_rate']:.2f}%"
+    )
 
 
-col4.metric(
-    "Fill Rate",
-    f"{kpis['fill_rate']:.2f}%"
-)
+with col4:
+
+    st.metric(
+        "Fill Rate",
+        f"{kpis['fill_rate']:.2f}%"
+    )
 
 
 col5, col6, col7 = st.columns(3)
 
 
-col5.metric(
-    "Inventory Value",
-    f"₹{kpis['inventory_value']:,.2f}"
-)
+with col5:
+
+    st.metric(
+        "Total Sales",
+        f"{kpis['total_sales']:,.0f}"
+    )
 
 
-col6.metric(
-    "Low Stock Items",
-    f"{kpis['low_stock_items']:,}"
-)
+with col6:
+
+    st.metric(
+        "Inventory Value",
+        f"₹{kpis['inventory_value']:,.2f}"
+    )
 
 
-col7.metric(
-    "Average Lead Time",
-    f"{kpis['average_lead_time']:.2f} days"
-)
+with col7:
+
+    st.metric(
+        "Low Stock Items",
+        f"{kpis['low_stock_items']:,}"
+    )
 
 
-st.markdown("---")
-
-
-# =========================================================
-# INVENTORY ANALYSIS
-# =========================================================
-
-st.header("📦 Inventory Analytics")
-
-
-left_col, right_col = st.columns(2)
+st.divider()
 
 
 # =========================================================
 # INVENTORY DISTRIBUTION
 # =========================================================
 
-with left_col:
+st.header("📦 Inventory Distribution")
 
-    st.subheader("Inventory Distribution")
 
-    inventory_data = analysis.inventory_distribution(df)
+col1, col2 = st.columns(2)
 
-    if not inventory_data.empty:
 
-        st.bar_chart(
-            inventory_data.set_index("Category")
+category_data = an.inventory_by_category(filtered_df)
+
+
+with col1:
+
+    st.subheader("Inventory by Category")
+
+    if not category_data.empty:
+
+        fig = px.bar(
+            category_data,
+            x="category",
+            y="total_stock",
+            color="category",
+            title="Stock by Product Category",
+            labels={
+                "category": "Category",
+                "total_stock": "Stock Quantity"
+            }
+        )
+
+        fig.update_layout(
+            showlegend=False,
+            template="plotly_white"
+        )
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True
         )
 
     else:
 
-        st.info(
-            "Category or stock column not found."
+        st.info("Category data unavailable.")
+
+
+warehouse_data = an.inventory_by_warehouse(filtered_df)
+
+
+with col2:
+
+    st.subheader("Inventory by Warehouse")
+
+    if not warehouse_data.empty:
+
+        fig = px.bar(
+            warehouse_data,
+            x="warehouse",
+            y="total_stock",
+            color="warehouse",
+            title="Stock Distribution Across Warehouses",
+            labels={
+                "warehouse": "Warehouse",
+                "total_stock": "Stock Quantity"
+            }
         )
+
+        fig.update_layout(
+            showlegend=False,
+            template="plotly_white"
+        )
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+
+    else:
+
+        st.info("Warehouse data unavailable.")
 
 
 # =========================================================
 # STOCK STATUS
 # =========================================================
 
-with right_col:
-
-    st.subheader("Stock Status")
-
-    status_data = analysis.stock_status(df)
-
-    if not status_data.empty:
-
-        status_counts = (
-            status_data["Stock Status"]
-            .value_counts()
-            .reset_index()
-        )
-
-        status_counts.columns = [
-            "Status",
-            "Count"
-        ]
-
-        st.bar_chart(
-            status_counts.set_index("Status")
-        )
-
-    else:
-
-        st.info(
-            "Stock column not found."
-        )
+st.header("📈 Stock Status")
 
 
-st.markdown("---")
+status_df = an.stock_status(filtered_df)
+
+
+if not status_df.empty:
+
+    status_counts = (
+        status_df["stock_status"]
+        .value_counts()
+        .reset_index()
+    )
+
+    status_counts.columns = [
+        "stock_status",
+        "count"
+    ]
+
+    fig = px.pie(
+        status_counts,
+        names="stock_status",
+        values="count",
+        hole=0.45,
+        title="Inventory Stock Status"
+    )
+
+    fig.update_layout(
+        template="plotly_white"
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
 
 
 # =========================================================
@@ -435,235 +410,252 @@ st.markdown("---")
 st.header("⚠️ Low Stock Alerts")
 
 
-low_stock_data = analysis.low_stock_alerts(df)
+alerts = an.low_stock_alerts(filtered_df)
 
 
-if not low_stock_data.empty:
+if alerts.empty:
+
+    st.success("All products have sufficient inventory.")
+
+else:
 
     st.warning(
-        f"{len(low_stock_data)} product(s) require attention."
+        f"{len(alerts)} products require inventory attention."
     )
 
+    display_columns = [
+        "product",
+        "warehouse",
+        "category",
+        "stock",
+        "reorder_point",
+        "shortage",
+        "supplier"
+    ]
+
+    display_columns = [
+        col for col in display_columns
+        if col in alerts.columns
+    ]
+
     st.dataframe(
-        low_stock_data,
+        alerts[display_columns],
         use_container_width=True,
         hide_index=True
     )
-
-else:
-
-    st.success(
-        "✅ No low-stock products found."
-    )
-
-
-st.markdown("---")
-
-
-# =========================================================
-# REORDER RECOMMENDATIONS
-# =========================================================
-
-st.header("🔄 Reorder Recommendations")
-
-
-reorder_data = analysis.reorder_recommendations(df)
-
-
-if not reorder_data.empty:
-
-    st.info(
-        f"{len(reorder_data)} product(s) need replenishment."
-    )
-
-    st.dataframe(
-        reorder_data,
-        use_container_width=True,
-        hide_index=True
-    )
-
-else:
-
-    st.success(
-        "No reorder recommendations available."
-    )
-
-
-st.markdown("---")
 
 
 # =========================================================
 # ABC ANALYSIS
 # =========================================================
 
-st.header("📈 ABC Inventory Analysis")
+st.header("📊 ABC Inventory Analysis")
 
 
-abc_data = analysis.abc_analysis(df)
+abc_df = an.abc_analysis(filtered_df)
 
 
-if not abc_data.empty:
+if not abc_df.empty:
 
-    abc_col1, abc_col2 = st.columns(2)
+    col1, col2 = st.columns(2)
 
-    with abc_col1:
+
+    with col1:
 
         abc_counts = (
-            abc_data["ABC Class"]
+            abc_df["abc_class"]
             .value_counts()
             .reset_index()
         )
 
         abc_counts.columns = [
-            "Class",
+            "ABC Class",
             "Products"
         ]
 
-        st.subheader("Product Distribution")
-
-        st.bar_chart(
-            abc_counts.set_index("Class")
+        fig = px.pie(
+            abc_counts,
+            names="ABC Class",
+            values="Products",
+            title="Products by ABC Class"
         )
 
-    with abc_col2:
-
-        st.subheader("ABC Classification")
-
-        st.dataframe(
-            abc_data,
-            use_container_width=True,
-            hide_index=True
+        st.plotly_chart(
+            fig,
+            use_container_width=True
         )
 
-else:
 
-    st.info(
-        "ABC Analysis requires stock quantity and unit price columns."
+    with col2:
+
+        fig = px.bar(
+            abc_df.head(15),
+            x="product",
+            y="revenue",
+            color="abc_class",
+            title="Top Products by Revenue",
+            labels={
+                "product": "Product",
+                "revenue": "Revenue"
+            }
+        )
+
+        fig.update_layout(
+            template="plotly_white"
+        )
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+
+
+    st.subheader("ABC Product Details")
+
+    st.dataframe(
+        abc_df,
+        use_container_width=True,
+        hide_index=True
     )
-
-
-st.markdown("---")
 
 
 # =========================================================
 # SUPPLIER ANALYSIS
 # =========================================================
 
-st.header("🏭 Supplier Scorecard")
+st.header("🚚 Supplier Performance Analysis")
 
 
-supplier_data = analysis.supplier_scorecard(df)
+supplier_df = an.supplier_analysis(filtered_df)
 
 
-if not supplier_data.empty:
+if not supplier_df.empty:
 
-    st.dataframe(
-        supplier_data,
-        use_container_width=True,
-        hide_index=True
-    )
-
-else:
-
-    st.info(
-        "Supplier column not found in dataset."
-    )
+    col1, col2 = st.columns(2)
 
 
-st.markdown("---")
+    with col1:
 
-
-# =========================================================
-# WAREHOUSE ANALYSIS
-# =========================================================
-
-st.header("🏢 Warehouse Performance")
-
-
-warehouse_data = analysis.warehouse_analysis(df)
-
-
-if not warehouse_data.empty:
-
-    st.dataframe(
-        warehouse_data,
-        use_container_width=True,
-        hide_index=True
-    )
-
-    if "Total Stock" in warehouse_data.columns:
-
-        st.bar_chart(
-            warehouse_data.set_index("Warehouse")
+        fig = px.bar(
+            supplier_df,
+            x="supplier",
+            y="total_sales",
+            color="supplier",
+            title="Sales by Supplier"
         )
 
-else:
+        fig.update_layout(
+            showlegend=False,
+            template="plotly_white"
+        )
 
-    st.info(
-        "Warehouse information is not available."
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+
+
+    with col2:
+
+        fig = px.bar(
+            supplier_df,
+            x="supplier",
+            y="average_lead_time",
+            color="supplier",
+            title="Average Supplier Lead Time"
+        )
+
+        fig.update_layout(
+            showlegend=False,
+            template="plotly_white"
+        )
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+
+
+    st.subheader("Supplier Details")
+
+    st.dataframe(
+        supplier_df,
+        use_container_width=True,
+        hide_index=True
     )
 
 
-st.markdown("---")
+# =========================================================
+# FORECASTING
+# =========================================================
+
+st.header("🔮 Inventory Forecast & Reorder Recommendation")
+
+
+forecast_df = an.inventory_forecast(filtered_df)
+
+
+if not forecast_df.empty:
+
+    st.dataframe(
+        forecast_df,
+        use_container_width=True,
+        hide_index=True
+    )
+
+
+    fig = px.bar(
+        forecast_df.head(15),
+        x="product",
+        y="recommended_order",
+        color="recommended_order",
+        title="Recommended Order Quantity"
+    )
+
+    fig.update_layout(
+        template="plotly_white"
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
 
 
 # =========================================================
 # SALES TREND
 # =========================================================
 
-st.header("📅 Sales Trend")
+st.header("📅 Sales Trend Analysis")
 
 
-trend_data = analysis.sales_trend(df)
+trend_df = an.sales_trend(filtered_df)
 
 
-if not trend_data.empty:
+if not trend_df.empty:
 
-    st.line_chart(
-        trend_data.set_index("Date")
+    fig = px.line(
+        trend_df,
+        x="date",
+        y="sales",
+        markers=True,
+        title="Sales Over Time"
+    )
+
+    fig.update_layout(
+        template="plotly_white"
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True
     )
 
 else:
 
     st.info(
-        "Date or sales columns are not available "
-        "for sales trend analysis."
-    )
-
-
-st.markdown("---")
-
-
-# =========================================================
-# DATASET INFORMATION
-# =========================================================
-
-with st.expander("📋 Dataset Information"):
-
-    summary = analysis.dataset_summary(df)
-
-    st.write(
-        f"**Rows:** {summary.get('rows', 0)}"
-    )
-
-    st.write(
-        f"**Columns:** {summary.get('columns', 0)}"
-    )
-
-    st.write(
-        f"**Missing Values:** "
-        f"{summary.get('missing_values', 0)}"
-    )
-
-    st.write(
-        f"**Duplicate Rows:** "
-        f"{summary.get('duplicate_rows', 0)}"
-    )
-
-    st.write("### Column Names")
-
-    st.write(
-        summary.get("column_names", [])
+        "Date-based sales trend is unavailable. "
+        "Your dataset needs a Date column."
     )
 
 
@@ -671,21 +663,32 @@ with st.expander("📋 Dataset Information"):
 # RAW DATA
 # =========================================================
 
-with st.expander("👁️ View Raw Dataset"):
+with st.expander("📋 View Dataset"):
 
     st.dataframe(
-        df,
+        filtered_df,
         use_container_width=True,
         hide_index=True
     )
 
 
 # =========================================================
-# FOOTER
+# DOWNLOAD DATA
 # =========================================================
 
-st.markdown("---")
+st.header("📥 Download Reports")
 
-st.caption(
-    "Supply Chain & Inventory Optimization Analytics Dashboard"
+
+csv_data = filtered_df.to_csv(index=False).encode("utf-8")
+
+
+st.download_button(
+    label="Download Filtered Inventory CSV",
+    data=csv_data,
+    file_name="filtered_inventory_report.csv",
+    mime="text/csv"
 )
+
+
+st.success("Dashboard loaded successfully!")
+
